@@ -1,0 +1,65 @@
+name: ci
+
+on: 
+  workflow_dispatch:
+  pull_request:
+  push:
+    paths:
+      - "v1"
+    branches:
+      - main
+      
+env:
+  SAUCE_USERNAME: ${{secrets.SAUCE_USERNAME}}
+  SAUCE_ACCESS_KEY: ${{secrets.SAUCE_ACCESS_KEY}}
+  DOCKER_IMAGE: ${{secrets.DOCKER_IMAGE}}
+  SAUCE_REGION: ${{secrets.SAUCE_REGION}}
+  GITHUB_TOKEN: ${{ github.token }}
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      -
+        name: Checkout
+        uses: actions/checkout@v3
+      -
+        name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+      -
+        name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+      -
+        name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.SAUCE_IMAGE_USER }}
+          password: ${{ secrets.SAUCE_IMAGE_TOKEN }}
+      -
+        name: Build and push
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/arm64,linux/amd64
+          push: true
+          tags: |
+            thaterikjames/${{secrets.DOCKER_IMAGE}}
+  sauce:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Saucectl RUN Docker and Cloud
+        uses: saucelabs/saucectl-run-action@v2
+        with:
+          skip-run: true
+          testing-environment: ""
+          concurrency: 1
+          config-file: .sauce/config.yml
+
+      - run: saucectl run
+        working-directory: 
+
